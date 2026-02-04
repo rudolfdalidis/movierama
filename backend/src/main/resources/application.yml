@@ -1,6 +1,11 @@
 server:
   port: 8080
 
+app:
+  jwt:
+    secret: "change-me-please-change-me-please-change-me-please"
+    expirationSeconds: 604800 # 7 days
+
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/movierama
