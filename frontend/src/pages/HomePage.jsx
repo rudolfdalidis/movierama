@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import { apiFetch } from "../api";
-import { isLoggedIn } from "../auth";
 
 function buildQuery(params) {
   const q = new URLSearchParams();
@@ -12,6 +12,8 @@ function buildQuery(params) {
 }
 
 export default function HomePage() {
+  const { user } = useOutletContext(); // provided by Layout via <Outlet context={{ user }} />
+
   const [sort, setSort] = useState("DATE"); // DATE | LIKES | HATES
   const [submittedBy, setSubmittedBy] = useState(null); // username
 
@@ -24,8 +26,10 @@ export default function HomePage() {
     setError("");
     try {
       const qs = buildQuery({ sort: nextSort, submittedBy: nextSubmittedBy ?? "" });
-      const data = await apiFetch(`/api/movies${qs}`, { auth: isLoggedIn() });
-      // Περιμένουμε array. Αν γυρίσεις {items:[...]} στο backend, άλλαξε εδώ σε data.items.
+      // If logged in, include token so backend can return myVote/canVote correctly
+      const data = await apiFetch(`/api/movies${qs}`, { auth: !!user });
+
+      // Expect an array. If backend returns {items:[...]}, keep the fallback.
       setMovies(Array.isArray(data) ? data : (data?.items ?? []));
     } catch (e) {
       setMovies([]);
@@ -38,7 +42,7 @@ export default function HomePage() {
   useEffect(() => {
     loadMovies();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sort, submittedBy]);
+  }, [sort, submittedBy, user]);
 
   const title = useMemo(() => {
     if (submittedBy) return `Movies by ${submittedBy}`;
@@ -46,10 +50,11 @@ export default function HomePage() {
   }, [submittedBy]);
 
   async function onVote(movie, clickedType) {
-    if (!isLoggedIn()) return;
+    if (!user) return;
     if (!movie?.canVote) return;
 
     const nextType = movie.myVote === clickedType ? null : clickedType;
+
     try {
       const updated = await apiFetch(`/api/movies/${movie.id}/vote`, {
         method: "PUT",
@@ -91,21 +96,14 @@ export default function HomePage() {
 
       {!loading && error && (
         <div style={{ border: "1px solid #f0c", padding: 12, borderRadius: 8 }}>
-          <p style={{ margin: 0, color: "crimson" }}>
-            {error}
-          </p>
-          <p style={{ margin: "8px 0 0 0", fontSize: 12 }}>
-            (If you haven’t implemented <code>/api/movies</code> yet, this is expected.)
-          </p>
+          <p style={{ margin: 0, color: "crimson" }}>{error}</p>
           <button style={{ marginTop: 8 }} onClick={() => loadMovies()}>
             Retry
           </button>
         </div>
       )}
 
-      {!loading && !error && movies.length === 0 && (
-        <p style={{ margin: 0 }}>No movies yet.</p>
-      )}
+      {!loading && !error && movies.length === 0 && <p style={{ margin: 0 }}>No movies yet.</p>}
 
       {/* Movie cards */}
       {!loading && !error && movies.length > 0 && (
@@ -147,11 +145,10 @@ export default function HomePage() {
 
               <footer style={{ display: "flex", gap: 12, alignItems: "center" }}>
                 <span>
-                  <strong>{m.likesCount ?? 0}</strong> likes |{" "}
-                  <strong>{m.hatesCount ?? 0}</strong> hates
+                  <strong>{m.likesCount ?? 0}</strong> likes | <strong>{m.hatesCount ?? 0}</strong> hates
                 </span>
 
-                {isLoggedIn() && (
+                {!!user && (
                   <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
                     {m.canVote ? (
                       <>

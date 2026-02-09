@@ -58,7 +58,7 @@ export default function Layout() {
         </div>
       </header>
 
-      {loading ? <p>Loading...</p> : <Outlet />}
+      {loading ? <p>Loading...</p> : <Outlet context={{ user }} />}
     </div>
   );
 }
