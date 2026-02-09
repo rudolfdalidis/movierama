@@ -27,7 +27,7 @@ public class AuthService {
             throw new UsernameTakenException();
         }
         User u = new User();
-        u.setUsername(username); // case-sensitive, όπως είπαμε
+        u.setUsername(username); // light case-sensitive
         u.setPasswordHash(passwordEncoder.encode(password));
         u = userRepository.save(u);
         return new AuthResponses.UserDto(u.getId(), u.getUsername());
