@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { apiFetch } from "../api";
+import { isLoggedIn } from "../auth";
 
 function buildQuery(params) {
   const q = new URLSearchParams();
@@ -11,23 +13,18 @@ function buildQuery(params) {
 
 export default function HomePage() {
   const [sort, setSort] = useState("DATE"); // DATE | LIKES | HATES
-  const [userId, setUserId] = useState(null);
+  const [submittedBy, setSubmittedBy] = useState(null); // username
 
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function loadMovies(nextSort = sort, nextUserId = userId) {
+  async function loadMovies(nextSort = sort, nextSubmittedBy = submittedBy) {
     setLoading(true);
     setError("");
     try {
-      const qs = buildQuery({ sort: nextSort, userId: nextUserId ?? "" });
-      const res = await fetch(`/api/movies${qs}`);
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `Failed to load movies (${res.status})`);
-      }
-      const data = await res.json();
+      const qs = buildQuery({ sort: nextSort, submittedBy: nextSubmittedBy ?? "" });
+      const data = await apiFetch(`/api/movies${qs}`, { auth: isLoggedIn() });
       // Περιμένουμε array. Αν γυρίσεις {items:[...]} στο backend, άλλαξε εδώ σε data.items.
       setMovies(Array.isArray(data) ? data : (data?.items ?? []));
     } catch (e) {
@@ -41,12 +38,29 @@ export default function HomePage() {
   useEffect(() => {
     loadMovies();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sort, userId]);
+  }, [sort, submittedBy]);
 
   const title = useMemo(() => {
-    if (userId) return `Movies by user #${userId}`;
+    if (submittedBy) return `Movies by ${submittedBy}`;
     return "Movies";
-  }, [userId]);
+  }, [submittedBy]);
+
+  async function onVote(movie, clickedType) {
+    if (!isLoggedIn()) return;
+    if (!movie?.canVote) return;
+
+    const nextType = movie.myVote === clickedType ? null : clickedType;
+    try {
+      const updated = await apiFetch(`/api/movies/${movie.id}/vote`, {
+        method: "PUT",
+        auth: true,
+        body: { type: nextType },
+      });
+      setMovies((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+    } catch (e) {
+      alert(e.message || "Vote failed");
+    }
+  }
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
@@ -65,8 +79,8 @@ export default function HomePage() {
           Date
         </button>
 
-        {userId && (
-          <button style={{ marginLeft: "auto" }} onClick={() => setUserId(null)}>
+        {submittedBy && (
+          <button style={{ marginLeft: "auto" }} onClick={() => setSubmittedBy(null)}>
             Clear user filter
           </button>
         )}
@@ -114,15 +128,15 @@ export default function HomePage() {
               <div style={{ fontSize: 13 }}>
                 Posted by{" "}
                 <button
-                  onClick={() => setUserId(m.submittedBy?.id)}
-                  disabled={!m.submittedBy?.id}
+                  onClick={() => setSubmittedBy(m.submittedBy?.username)}
+                  disabled={!m.submittedBy?.username}
                   style={{
                     border: "none",
                     background: "transparent",
                     padding: 0,
                     color: "blue",
-                    cursor: m.submittedBy?.id ? "pointer" : "default",
-                    textDecoration: m.submittedBy?.id ? "underline" : "none",
+                    cursor: m.submittedBy?.username ? "pointer" : "default",
+                    textDecoration: m.submittedBy?.username ? "underline" : "none",
                   }}
                   title="Filter by user"
                 >
@@ -137,7 +151,27 @@ export default function HomePage() {
                   <strong>{m.hatesCount ?? 0}</strong> hates
                 </span>
 
-                {/* Voting UI θα μπει αφού υλοποιήσουμε votes API */}
+                {isLoggedIn() && (
+                  <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+                    {m.canVote ? (
+                      <>
+                        <button onClick={() => onVote(m, "LIKE")}>
+                          {m.myVote === "LIKE" ? "Unlike" : "Like"}
+                        </button>
+                        <button onClick={() => onVote(m, "HATE")}>
+                          {m.myVote === "HATE" ? "Unhate" : "Hate"}
+                        </button>
+                        {m.myVote && (
+                          <span style={{ fontSize: 12 }}>
+                            You {m.myVote === "LIKE" ? "like" : "hate"} this movie.
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span style={{ fontSize: 12, opacity: 0.75 }}>You can’t vote on your own movie.</span>
+                    )}
+                  </div>
+                )}
               </footer>
             </article>
           ))}
