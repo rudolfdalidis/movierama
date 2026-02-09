@@ -2,6 +2,7 @@ package com.example.backend.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -20,8 +21,10 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/movies/**").permitAll() 
-                .requestMatchers("/api/me").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/movies/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/movies").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/api/movies/*/vote").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/me").authenticated()
                 .anyRequest().permitAll()
                 );
 

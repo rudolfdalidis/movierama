@@ -2,6 +2,9 @@ package com.example.backend.auth;
 
 import java.io.IOException;
 
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -30,6 +33,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 var parsed = jwtService.parseAndValidate(token);
                 // for simplicity we pass userId downstream as request attribute
                 request.setAttribute("authUserId", parsed.userId());
+
+                // also mark the request as authenticated for Spring Security authorization rules
+                if (SecurityContextHolder.getContext().getAuthentication() == null) {
+                    var authToken = new UsernamePasswordAuthenticationToken(parsed.userId(), null, java.util.List.of());
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
             } catch (Exception ignored) {
                 // invalid token -> no authUserId (401 - protected endpoints)
             }
