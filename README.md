@@ -1,4 +1,4 @@
-# MovieRama
+# MovieRama 🎬
 
 MovieRama is a simple movie-sharing application where users can submit movies and vote (like or hate) on movies submitted by others. Users cannot vote on their own movies.
 
@@ -72,5 +72,6 @@ Frontend runs on http://localhost:5173, backend on http://localhost:8080.
 ## Notes
 
 - Usernames are case-sensitive
+- Username must be at least 3 characters, password at least 8 characters
 - Voting is limited to one vote per user per movie (DB-enforced)
 - JWT authentication is fully stateless
